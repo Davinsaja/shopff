@@ -1,26 +1,43 @@
-// Loading Screen
+// Loading Screen — animasi halus (easing)
 const loadingScreen = document.getElementById('loadingScreen');
 const loadingProgress = document.getElementById('loadingProgress');
 
-let progress = 0;
-const loadingInterval = setInterval(() => {
-    progress += Math.random() * 15;
-    if (progress >= 100) {
-        progress = 100;
-        clearInterval(loadingInterval);
-
+function finishLoadingScreen() {
+    if (loadingScreen) {
+        loadingScreen.classList.add('hidden');
         setTimeout(() => {
-            loadingScreen.classList.add('hidden');
-            document.body.classList.add('page-loaded');
-            setTimeout(() => {
-                loadingScreen.style.display = 'none';
-            }, 500);
-        }, 300);
+            loadingScreen.style.display = 'none';
+        }, 650);
     }
-    if (loadingProgress) {
-        loadingProgress.style.width = progress + '%';
+    document.body.classList.add('page-loaded');
+}
+
+function runLoadingAnimation() {
+    const duration = 2200;
+    const start = performance.now();
+
+    function frame(now) {
+        const t = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        const pct = Math.round(eased * 100);
+        if (loadingProgress) {
+            loadingProgress.style.width = pct + '%';
+        }
+        if (t < 1) {
+            requestAnimationFrame(frame);
+        } else {
+            setTimeout(finishLoadingScreen, 280);
+        }
     }
-}, 100);
+
+    requestAnimationFrame(frame);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runLoadingAnimation);
+} else {
+    runLoadingAnimation();
+}
 
 // WhatsApp dari products.js
 function getWhatsAppNumber() {
@@ -35,29 +52,52 @@ function openWhatsApp(productName, price) {
     window.open(whatsappURL, '_blank', 'noopener,noreferrer');
 }
 
+function getInstagramUrl() {
+    return (typeof SITE_CONFIG !== 'undefined' && SITE_CONFIG.instagram)
+        ? SITE_CONFIG.instagram
+        : 'https://www.instagram.com/dapin.saja?igsh=NWxjaWt3bTc3cGlk';
+}
+
 function setupContactLinks() {
     const wa = getWhatsAppNumber();
     const display = (typeof SITE_CONFIG !== 'undefined' && SITE_CONFIG.whatsappDisplay)
         ? SITE_CONFIG.whatsappDisplay
         : '0819 4409 0188';
     const waUrl = `https://wa.me/${wa}`;
+    const igUrl = getInstagramUrl();
 
     const phoneEl = document.getElementById('contactPhone');
     if (phoneEl) phoneEl.textContent = display;
 
-    ['contactWhatsAppBtn', 'navWhatsAppBtn', 'fabWhatsApp'].forEach(id => {
+    ['contactWhatsAppBtn', 'navWhatsAppBtn', 'navWhatsAppBtnDrawer', 'fabWhatsApp'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.href = id === 'fabWhatsApp'
-                ? `${waUrl}?text=${encodeURIComponent('Halo GameVault, saya ingin tanya produk akun game.')}`
+                ? `${waUrl}?text=${encodeURIComponent('Halo VinszStore, saya ingin tanya produk akun game.')}`
                 : waUrl;
         }
     });
 
-    const navWa = document.getElementById('navWhatsAppBtn');
-    if (navWa) {
-        navWa.addEventListener('click', () => closeNavMenu());
+    ['contactInstagram', 'footerInstagram'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.href = igUrl;
+    });
+
+    const footerWa = document.getElementById('footerWhatsApp');
+    if (footerWa) footerWa.href = waUrl;
+
+    if (typeof SITE_CONFIG !== 'undefined') {
+        const taglineEl = document.getElementById('footerTagline');
+        if (taglineEl && SITE_CONFIG.tagline) taglineEl.textContent = SITE_CONFIG.tagline;
+        const locName = document.getElementById('footerLocationName');
+        if (locName && SITE_CONFIG.locationName) locName.textContent = SITE_CONFIG.locationName;
+        const locAddr = document.getElementById('footerLocationAddress');
+        if (locAddr && SITE_CONFIG.locationAddress) locAddr.textContent = SITE_CONFIG.locationAddress;
     }
+
+    document.querySelectorAll('#navWhatsAppBtn, #navWhatsAppBtnDrawer').forEach(el => {
+        el.addEventListener('click', () => closeNavMenu());
+    });
 }
 
 function initScrollProgress() {
@@ -86,23 +126,37 @@ function initBackToTop() {
 }
 
 function initScrollSpy() {
-    const sections = ['home', 'products', 'testimonials', 'contact'];
+    const sectionIds = ['home', 'products', 'testimonials', 'faq', 'contact'];
     const links = document.querySelectorAll('.nav-link[data-section]');
+    const visibility = new Map();
 
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (!entry.isIntersecting) return;
-            const id = entry.target.id;
-            links.forEach(link => {
-                link.classList.toggle('active', link.dataset.section === id);
-            });
+            visibility.set(
+                entry.target.id,
+                entry.isIntersecting ? entry.intersectionRatio : 0
+            );
+        });
+
+        let activeId = sectionIds[0];
+        let bestRatio = 0;
+        sectionIds.forEach(id => {
+            const ratio = visibility.get(id) || 0;
+            if (ratio > bestRatio) {
+                bestRatio = ratio;
+                activeId = id;
+            }
+        });
+
+        links.forEach(link => {
+            link.classList.toggle('active', link.dataset.section === activeId);
         });
     }, {
-        rootMargin: '-40% 0px -50% 0px',
-        threshold: 0
+        rootMargin: '-22% 0px -58% 0px',
+        threshold: [0, 0.15, 0.3, 0.5, 0.75]
     });
 
-    sections.forEach(id => {
+    sectionIds.forEach(id => {
         const el = document.getElementById(id);
         if (el) observer.observe(el);
     });
@@ -163,6 +217,10 @@ if (navToggle && navMenu && mobileMenuOverlay) {
             closeNavMenu();
         });
     });
+
+    document.querySelectorAll('.nav-icon-faq').forEach(link => {
+        link.addEventListener('click', () => closeNavMenu());
+    });
 }
 
 window.addEventListener('resize', () => {
@@ -174,40 +232,152 @@ window.addEventListener('resize', () => {
 // Render produk dari products.js
 const WA_ICON = `<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`;
 
-function renderProducts() {
-    const grid = document.getElementById('productsGrid');
-    if (!grid || typeof PRODUCTS === 'undefined') return;
+const ZOOM_ICON = `<svg class="zoom-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`;
 
-    grid.innerHTML = PRODUCTS.map((p, index) => {
-        const featuresHtml = (p.features || []).slice(0, 3)
-            .map(f => `<span class="feature">✓ ${escapeHtml(f)}</span>`)
-            .join('');
+let activeFilter = 'all';
+let activeStockFilter = 'all';
+let searchQuery = '';
+let activeSort = 'newest';
 
-        return `
-        <article class="product-card fade-up" data-product-id="${escapeHtml(p.id)}" style="--stagger: ${index * 0.07}s">
-            <button type="button" class="card-image-btn" data-open-detail="${escapeHtml(p.id)}" aria-label="Lihat detail ${escapeHtml(p.title)}">
-                <div class="card-image">
-                    <div class="game-badge">${escapeHtml(p.game)}</div>
-                    <div class="card-overlay"></div>
-                    <img src="${escapeHtml(p.thumbnail)}" alt="${escapeHtml(p.title)}" loading="lazy">
-                    <span class="card-image-hint">Klik untuk detail</span>
+function parseProductPrice(price) {
+    return parseInt(String(price).replace(/\D/g, ''), 10) || 0;
+}
+
+function sortProducts(list) {
+    const sorted = [...list];
+    switch (activeSort) {
+        case 'price-asc':
+            sorted.sort((a, b) => parseProductPrice(a.price) - parseProductPrice(b.price));
+            break;
+        case 'price-desc':
+            sorted.sort((a, b) => parseProductPrice(b.price) - parseProductPrice(a.price));
+            break;
+        case 'name':
+            sorted.sort((a, b) => a.title.localeCompare(b.title, 'id'));
+            break;
+        default:
+            break;
+    }
+    return sorted;
+}
+
+function getProductCategory(product) {
+    if (product.category) return product.category;
+    const game = (product.game || '').toUpperCase();
+    if (game.includes('MOBILE LEGENDS') || game.includes('MLBB') || game === 'ML') return 'ml';
+    if (game.includes('FREE FIRE') || game === 'FF') return 'ff';
+    if (game.includes('PUBG')) return 'pubg';
+    return 'lainnya';
+}
+
+function getStatusLabel(soldOut) {
+    return soldOut
+        ? { emoji: '❌', text: 'Sold Out', className: 'status-sold' }
+        : { emoji: '✅', text: 'Tersedia', className: 'status-available' };
+}
+
+function productMatchesSearch(product, query) {
+    if (!query) return true;
+    const haystack = [
+        product.title,
+        product.game,
+        product.description,
+        product.descriptionFull,
+        product.price,
+        ...(product.features || []),
+        ...(product.specs || [])
+    ].join(' ').toLowerCase();
+    return haystack.includes(query);
+}
+
+function getFilteredProducts() {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = PRODUCTS.filter(p => {
+        const cat = getProductCategory(p);
+        if (activeFilter !== 'all' && cat !== activeFilter) return false;
+        if (activeStockFilter === 'available' && p.soldOut) return false;
+        if (activeStockFilter === 'soldout' && !p.soldOut) return false;
+        return productMatchesSearch(p, q);
+    });
+    return sortProducts(filtered);
+}
+
+function buildProductCardHtml(p, index) {
+    const soldOut = Boolean(p.soldOut);
+    const cat = getProductCategory(p);
+    const statusTagClass = soldOut ? 'card-status-tag--sold' : 'card-status-tag--ready';
+    const statusLabel = soldOut ? 'Habis' : 'Tersedia';
+
+    return `
+        <article class="product-card fade-up${soldOut ? ' is-sold-out' : ''}" data-product-id="${escapeHtml(p.id)}" data-category="${escapeHtml(cat)}" data-sold-out="${soldOut}" style="--stagger: ${index * 0.07}s">
+            <div class="card-image-wrap">
+                <button type="button" class="card-image-btn" data-open-detail="${escapeHtml(p.id)}" aria-label="Lihat detail ${escapeHtml(p.title)}">
+                    <div class="card-image">
+                        ${soldOut ? '<div class="sold-out-veil" aria-hidden="true"></div><span class="sold-out-stamp">HABIS</span>' : ''}
+                        <img src="${escapeHtml(p.thumbnail)}" alt="${escapeHtml(p.title)}" loading="lazy"${soldOut ? ' class="img-sold-out"' : ''}>
+                    </div>
+                </button>
+                <button type="button" class="card-zoom-btn" data-zoom-src="${escapeHtml(p.thumbnail)}" data-zoom-alt="${escapeHtml(p.title)}" aria-label="Perbesar foto ${escapeHtml(p.title)}">${ZOOM_ICON}</button>
+            </div>
+            <div class="card-body">
+                <div class="card-meta-tags">
+                    <span class="card-game-tag">${escapeHtml(p.game)}</span>
+                    <span class="card-status-tag ${statusTagClass}"><span class="status-dot" aria-hidden="true"></span>${statusLabel}</span>
                 </div>
-            </button>
-            <div class="card-content">
                 <h3 class="card-title">${escapeHtml(p.title)}</h3>
                 <p class="card-description">${escapeHtml(p.description)}</p>
-                <div class="card-features">${featuresHtml}</div>
-                <div class="card-price">
-                    <span class="price-label">Harga</span>
-                    <span class="price-value">Rp ${escapeHtml(p.price)}</span>
+                <div class="card-price-block">
+                    <span class="card-price-label">Harga</span>
+                    <span class="card-price-value">Rp ${escapeHtml(p.price)}</span>
                 </div>
-                <button type="button" class="btn btn-whatsapp" data-wa-id="${escapeHtml(p.id)}">
-                    ${WA_ICON}
-                    Beli via WhatsApp
-                </button>
+                <div class="card-actions">
+                    <button type="button" class="btn-card-buy btn-primary-buy${soldOut ? ' btn-disabled' : ''}" data-wa-id="${escapeHtml(p.id)}"${soldOut ? ' disabled' : ''}>${soldOut ? 'Habis' : 'Beli'}</button>
+                    <button type="button" class="btn-card-detail" data-open-detail="${escapeHtml(p.id)}">Detail</button>
+                </div>
             </div>
         </article>`;
-    }).join('');
+}
+
+function updateCatalogResult(count) {
+    const el = document.getElementById('catalogResult');
+    if (!el) return;
+
+    const q = searchQuery.trim();
+    const filtered =
+        activeFilter !== 'all' || activeStockFilter !== 'all' || q.length > 0;
+
+    if (count === 0) {
+        el.textContent = filtered
+            ? 'Tidak ada akun yang cocok dengan filter ini'
+            : 'Belum ada akun di katalog';
+        el.classList.add('catalog-result--empty');
+        return;
+    }
+
+    el.classList.remove('catalog-result--empty');
+    if (activeStockFilter === 'available') {
+        el.textContent = `${count} akun tersedia — siap dibeli`;
+    } else if (filtered) {
+        el.textContent = `Menampilkan ${count} akun`;
+    } else {
+        el.textContent = `${count} akun siap dibeli`;
+    }
+}
+
+function renderProducts() {
+    const grid = document.getElementById('productsGrid');
+    const emptyEl = document.getElementById('productsEmpty');
+    if (!grid || typeof PRODUCTS === 'undefined') return;
+
+    const filtered = getFilteredProducts();
+
+    grid.innerHTML = filtered.map((p, index) => buildProductCardHtml(p, index)).join('');
+
+    if (emptyEl) {
+        emptyEl.hidden = filtered.length > 0;
+    }
+
+    updateCatalogResult(filtered.length);
 
     grid.querySelectorAll('[data-open-detail]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -216,20 +386,183 @@ function renderProducts() {
         });
     });
 
+    grid.querySelectorAll('[data-zoom-src]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            openImageZoom(btn.dataset.zoomSrc, btn.dataset.zoomAlt || '');
+        });
+    });
+
     grid.querySelectorAll('[data-wa-id]').forEach(btn => {
         btn.addEventListener('click', () => {
             const product = PRODUCTS.find(p => p.id === btn.dataset.waId);
-            if (product) openWhatsApp(product.title, product.price);
+            if (!product || product.soldOut) return;
+            openWhatsApp(product.title, product.price);
         });
     });
 
     registerFadeAnimations(grid);
 }
 
+function setFilterGroupActive(buttons, activeBtn) {
+    buttons.forEach(b => {
+        const active = b === activeBtn;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+}
+
+function initProductFilters() {
+    const toolbar = document.getElementById('productsToolbar');
+    if (!toolbar || toolbar.dataset.filtersBound === '1') return;
+    toolbar.dataset.filtersBound = '1';
+
+    const gameFilterBtns = toolbar.querySelectorAll('.catalog-chips-game .filter-btn[data-filter]');
+    const stockFilterBtns = toolbar.querySelectorAll('.catalog-stock-chips .filter-btn[data-stock-filter]');
+    const searchInput = document.getElementById('productSearch');
+    const searchClear = document.getElementById('searchClear');
+
+    gameFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeFilter = btn.dataset.filter;
+            setFilterGroupActive(gameFilterBtns, btn);
+            renderProducts();
+        });
+    });
+
+    stockFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeStockFilter = btn.dataset.stockFilter;
+            setFilterGroupActive(stockFilterBtns, btn);
+            renderProducts();
+        });
+    });
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            searchQuery = searchInput.value;
+            if (searchClear) searchClear.hidden = !searchQuery.length;
+            renderProducts();
+        });
+    }
+
+    if (searchClear && searchInput) {
+        searchClear.addEventListener('click', () => {
+            searchInput.value = '';
+            searchQuery = '';
+            searchClear.hidden = true;
+            searchInput.focus();
+            renderProducts();
+        });
+    }
+
+    const sortSelect = document.getElementById('productSort');
+    if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+            activeSort = sortSelect.value;
+            renderProducts();
+        });
+    }
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Zoom foto (tombol +)
+let currentZoomSrc = '';
+
+function openImageZoom(src, alt) {
+    const modal = document.getElementById('imageZoomModal');
+    const img = document.getElementById('imageZoomImg');
+    if (!modal || !img || !src) return;
+
+    currentZoomSrc = src;
+    img.src = src;
+    img.alt = alt || 'Foto produk';
+    modal.removeAttribute('hidden');
+    modal.classList.add('active');
+    document.body.classList.add('no-scroll');
+    const fab = document.getElementById('fabWhatsApp');
+    if (fab) fab.style.visibility = 'hidden';
+}
+
+function closeImageZoom() {
+    const modal = document.getElementById('imageZoomModal');
+    if (!modal || !modal.classList.contains('active')) return;
+    modal.classList.remove('active');
+    modal.setAttribute('hidden', '');
+    currentZoomSrc = '';
+    if (!isModalOpen()) {
+        document.body.classList.remove('no-scroll');
+        const fab = document.getElementById('fabWhatsApp');
+        if (fab) fab.style.visibility = '';
+    }
+}
+
+function isImageZoomOpen() {
+    const modal = document.getElementById('imageZoomModal');
+    return modal && modal.classList.contains('active');
+}
+
+function initImageZoom() {
+    const overlay = document.getElementById('imageZoomOverlay');
+    const closeBtn = document.getElementById('imageZoomClose');
+    if (overlay) overlay.addEventListener('click', closeImageZoom);
+    if (closeBtn) closeBtn.addEventListener('click', closeImageZoom);
+}
+
+function renderFaq() {
+    const list = document.getElementById('faqList');
+    if (!list || typeof FAQ_ITEMS === 'undefined') return;
+
+    list.innerHTML = FAQ_ITEMS.map((item, i) => `
+        <div class="faq-item" role="listitem">
+            <button type="button" class="faq-question" id="faq-btn-${i}" aria-expanded="false" aria-controls="faq-answer-${i}">
+                <span class="faq-question-text">${escapeHtml(item.question)}</span>
+                <span class="faq-icon" aria-hidden="true">
+                    <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                </span>
+            </button>
+            <div class="faq-answer" id="faq-answer-${i}" role="region" aria-labelledby="faq-btn-${i}" hidden>
+                <p>${escapeHtml(item.answer)}</p>
+            </div>
+        </div>
+    `).join('');
+}
+
+function initFaqAccordion() {
+    const list = document.getElementById('faqList');
+    if (!list || list.dataset.faqBound === '1') return;
+    list.dataset.faqBound = '1';
+
+    list.querySelectorAll('.faq-question').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const item = btn.closest('.faq-item');
+            const answer = item.querySelector('.faq-answer');
+            const isOpen = item.classList.contains('open');
+
+            list.querySelectorAll('.faq-item.open').forEach(openItem => {
+                if (openItem === item) return;
+                openItem.classList.remove('open');
+                const q = openItem.querySelector('.faq-question');
+                const a = openItem.querySelector('.faq-answer');
+                if (q) q.setAttribute('aria-expanded', 'false');
+                if (a) a.setAttribute('hidden', '');
+            });
+
+            item.classList.toggle('open', !isOpen);
+            btn.setAttribute('aria-expanded', String(!isOpen));
+            if (isOpen) {
+                answer.setAttribute('hidden', '');
+            } else {
+                answer.removeAttribute('hidden');
+            }
+        });
+    });
 }
 
 // Product Modal — foto detail bisa beda (detailImage)
@@ -243,17 +576,36 @@ function openProductModal(product) {
     const modalSpecs = document.getElementById('modalSpecs');
     const modalWhatsAppBtn = document.getElementById('modalWhatsAppBtn');
 
-    if (!modal) return;
+    if (!modal || !modalWhatsAppBtn) return;
 
     const detailSrc = product.detailImage || product.thumbnail;
     const fullDesc = product.descriptionFull || product.description;
 
     modalImage.src = detailSrc;
     modalImage.alt = product.title;
+
+    const modalZoomBtn = document.getElementById('modalZoomBtn');
+    if (modalZoomBtn) {
+        modalZoomBtn.onclick = (e) => {
+            e.stopPropagation();
+            openImageZoom(detailSrc, product.title);
+        };
+    }
+
+    const soldOut = Boolean(product.soldOut);
+    const status = getStatusLabel(soldOut);
+
     modalTitle.textContent = product.title;
     modalDescription.textContent = fullDesc;
     modalGameBadge.textContent = product.game;
     modalPrice.textContent = 'Rp ' + product.price;
+
+    const modalStatus = document.getElementById('modalStatus');
+    if (modalStatus) {
+        const ready = !soldOut;
+        modalStatus.className = 'modal-status-tag ' + (ready ? 'modal-status-tag--ready' : 'modal-status-tag--sold');
+        modalStatus.innerHTML = `<span class="status-dot" aria-hidden="true"></span>${status.text}`;
+    }
 
     modalSpecs.innerHTML = '';
     (product.specs || []).forEach(spec => {
@@ -262,7 +614,28 @@ function openProductModal(product) {
         modalSpecs.appendChild(li);
     });
 
-    modalWhatsAppBtn.onclick = () => openWhatsApp(product.title, product.price);
+    const waMsg = `Halo, saya tertarik membeli akun game:\n\nNama: ${product.title}\nHarga: Rp ${product.price}\n\nApakah masih tersedia?`;
+    const waUrl = `https://wa.me/${getWhatsAppNumber()}?text=${encodeURIComponent(waMsg)}`;
+
+    if (soldOut) {
+        modalWhatsAppBtn.href = '#';
+        modalWhatsAppBtn.setAttribute('aria-disabled', 'true');
+        modalWhatsAppBtn.classList.add('btn-disabled');
+        modalWhatsAppBtn.innerHTML = '❌ Sudah Terjual';
+        modalWhatsAppBtn.onclick = (e) => e.preventDefault();
+    } else {
+        modalWhatsAppBtn.href = waUrl;
+        modalWhatsAppBtn.removeAttribute('aria-disabled');
+        modalWhatsAppBtn.classList.remove('btn-disabled');
+        modalWhatsAppBtn.innerHTML = `
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+            </svg>
+            Beli via WhatsApp`;
+        modalWhatsAppBtn.onclick = null;
+    }
+
+    modal.classList.toggle('modal-sold-out', soldOut);
 
     modal.classList.add('active');
     document.body.classList.add('no-scroll');
@@ -274,10 +647,12 @@ function openProductModal(product) {
 function closeModal() {
     const modal = document.getElementById('productModal');
     if (!modal || !modal.classList.contains('active')) return;
-    modal.classList.remove('active');
-    document.body.classList.remove('no-scroll');
-    const fab = document.getElementById('fabWhatsApp');
-    if (fab) fab.style.visibility = '';
+    modal.classList.remove('active', 'modal-sold-out');
+    if (!isImageZoomOpen()) {
+        document.body.classList.remove('no-scroll');
+        const fab = document.getElementById('fabWhatsApp');
+        if (fab) fab.style.visibility = '';
+    }
 }
 
 function isModalOpen() {
@@ -364,7 +739,8 @@ if (testimonialTrack) {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        if (isModalOpen()) closeModal();
+        if (isImageZoomOpen()) closeImageZoom();
+        else if (isModalOpen()) closeModal();
         else if (navMenu && navMenu.classList.contains('active')) closeNavMenu();
         return;
     }
@@ -392,9 +768,72 @@ function bindSmoothScroll(selector) {
 
 bindSmoothScroll('a[href^="#"]:not(.nav-cta)');
 
+function initModalDismiss() {
+    const productModal = document.getElementById('productModal');
+    if (!productModal || productModal.dataset.dismissBound === '1') return;
+    productModal.dataset.dismissBound = '1';
+
+    const overlay = productModal.querySelector('.modal-overlay');
+    const closeBtn = productModal.querySelector('.modal-close');
+    if (overlay) overlay.addEventListener('click', closeModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+}
+
+const THEME_KEY = 'vinszstore-theme';
+
+function applyTheme(theme) {
+    const root = document.documentElement;
+    const isLight = theme === 'light';
+    root.setAttribute('data-theme', theme);
+
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', isLight ? '#b8c5d6' : '#0b0f1a');
+
+    document.querySelectorAll('.theme-toggle').forEach(toggle => {
+        toggle.setAttribute('aria-label', isLight ? 'Mode terang (klik untuk gelap)' : 'Mode gelap (klik untuk terang)');
+    });
+}
+
+function initThemeToggle() {
+    const toggles = document.querySelectorAll('#themeToggle, .theme-toggle');
+    if (!toggles.length) return;
+
+    let theme = 'dark';
+    try {
+        theme =
+            localStorage.getItem(THEME_KEY) ||
+            localStorage.getItem('gamevault-theme') ||
+            'dark';
+        if (!localStorage.getItem(THEME_KEY)) {
+            localStorage.setItem(THEME_KEY, theme);
+        }
+    } catch (e) {
+        theme = 'dark';
+    }
+    applyTheme(theme);
+
+    toggles.forEach(toggle => {
+        if (toggle.dataset.themeBound === '1') return;
+        toggle.dataset.themeBound = '1';
+        toggle.addEventListener('click', () => {
+            const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+            try {
+                localStorage.setItem(THEME_KEY, next);
+            } catch (e) { /* ignore */ }
+            applyTheme(next);
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    initThemeToggle();
     setupContactLinks();
     renderProducts();
+    renderFaq();
+    initFaqAccordion();
+    initImageZoom();
+    initModalDismiss();
+    initProductFilters();
     initScrollProgress();
     initBackToTop();
     initScrollSpy();
@@ -407,5 +846,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global untuk onclick di HTML (modal tutup)
 window.closeModal = closeModal;
+window.closeImageZoom = closeImageZoom;
 window.openWhatsApp = openWhatsApp;
 window.openProductModal = openProductModal;
+window.openImageZoom = openImageZoom;
