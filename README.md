@@ -14,6 +14,7 @@ Website marketplace akun game modern dengan desain profesional dan produk hardco
 - **Navbar Blur**: Efek blur pada navbar saat scroll
 - **Fade-up Animations**: Animasi elemen saat scroll
 - **Lazy Loading Images**: Optimasi performa dengan lazy loading
+- **Vercel Speed Insights**: Tracking performa dan Core Web Vitals otomatis
 
 ## Teknologi
 
@@ -176,6 +177,22 @@ body {
 2. Cek browser console untuk error
 3. Pastikan browser mendukung CSS animations
 
+## Vercel Speed Insights
+
+Website ini sudah terintegrasi dengan Vercel Speed Insights untuk tracking performa otomatis. Speed Insights akan:
+- Melacak Core Web Vitals (LCP, FID, CLS)
+- Mengukur performa loading dan interaktivitas
+- Memberikan insights untuk optimasi
+
+### Aktivasi Speed Insights
+
+Speed Insights akan aktif secara otomatis setelah:
+1. Deploy website ke Vercel
+2. Enable Speed Insights di Vercel dashboard
+3. Script tracking akan otomatis dimuat dari `/_vercel/speed-insights/script.js`
+
+Dashboard Speed Insights dapat diakses di Vercel project dashboard Anda untuk melihat metrik performa real-time.
+
 ## Deployment
 
 ### Deploy ke Hosting Statis
@@ -186,9 +203,10 @@ Upload semua file ke hosting provider Anda:
 1. Drag and drop folder `shopff` ke Netlify dashboard
 2. Website akan langsung live
 
-**Vercel:**
+**Vercel (Recommended for Speed Insights):**
 1. Install Vercel CLI: `npm i -g vercel`
 2. Run: `vercel` di folder project
+3. Enable Speed Insights di Vercel dashboard untuk tracking performa
 
 **GitHub Pages:**
 1. Push ke GitHub repository
@@ -197,6 +215,8 @@ Upload semua file ke hosting provider Anda:
 
 **Hosting Lain:**
 Upload file `index.html`, `styles.css`, dan `script.js` ke hosting provider Anda (cPanel, Hostinger, dll).
+
+**Note:** Vercel Speed Insights hanya akan berfungsi ketika di-deploy ke Vercel. Untuk hosting lain, script tracking tidak akan berpengaruh.
 
 ## License
 
