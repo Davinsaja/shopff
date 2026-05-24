@@ -7,13 +7,25 @@ function finishLoadingScreen() {
         loadingScreen.classList.add('hidden');
         setTimeout(() => {
             loadingScreen.style.display = 'none';
-        }, 650);
+        }, 280);
     }
     document.body.classList.add('page-loaded');
 }
 
+const IS_COARSE_POINTER = window.matchMedia('(pointer: coarse)').matches;
+const IS_NARROW_VIEW = window.matchMedia('(max-width: 768px)').matches;
+
 function runLoadingAnimation() {
-    const duration = 2200;
+    try {
+        if (sessionStorage.getItem('vinsz-visited') === '1') {
+            if (loadingProgress) loadingProgress.style.width = '100%';
+            finishLoadingScreen();
+            return;
+        }
+        sessionStorage.setItem('vinsz-visited', '1');
+    } catch (e) { /* ignore */ }
+
+    const duration = IS_NARROW_VIEW ? 500 : 700;
     const start = performance.now();
 
     function frame(now) {
@@ -26,7 +38,7 @@ function runLoadingAnimation() {
         if (t < 1) {
             requestAnimationFrame(frame);
         } else {
-            setTimeout(finishLoadingScreen, 280);
+            finishLoadingScreen();
         }
     }
 
@@ -89,27 +101,11 @@ function setupContactLinks() {
     if (typeof SITE_CONFIG !== 'undefined') {
         const taglineEl = document.getElementById('footerTagline');
         if (taglineEl && SITE_CONFIG.tagline) taglineEl.textContent = SITE_CONFIG.tagline;
-        const locName = document.getElementById('footerLocationName');
-        if (locName && SITE_CONFIG.locationName) locName.textContent = SITE_CONFIG.locationName;
-        const locAddr = document.getElementById('footerLocationAddress');
-        if (locAddr && SITE_CONFIG.locationAddress) locAddr.textContent = SITE_CONFIG.locationAddress;
     }
 
     document.querySelectorAll('#navWhatsAppBtn, #navWhatsAppBtnDrawer').forEach(el => {
         el.addEventListener('click', () => closeNavMenu());
     });
-}
-
-function initScrollProgress() {
-    const bar = document.getElementById('scrollProgress');
-    if (!bar) return;
-
-    window.addEventListener('scroll', () => {
-        const doc = document.documentElement;
-        const scrolled = doc.scrollTop;
-        const max = doc.scrollHeight - doc.clientHeight;
-        bar.style.width = max > 0 ? `${(scrolled / max) * 100}%` : '0%';
-    }, { passive: true });
 }
 
 function initBackToTop() {
@@ -302,22 +298,29 @@ function getFilteredProducts() {
     return sortProducts(filtered);
 }
 
+function getCardThumbSrc(product) {
+    return product.thumbnail || product.detailImage || '';
+}
+
 function buildProductCardHtml(p, index) {
     const soldOut = Boolean(p.soldOut);
     const cat = getProductCategory(p);
     const statusTagClass = soldOut ? 'card-status-tag--sold' : 'card-status-tag--ready';
     const statusLabel = soldOut ? 'Habis' : 'Tersedia';
+    const thumb = getCardThumbSrc(p);
+    const imgClass = soldOut ? 'img-sold-out' : '';
+    const fetchPri = index < 4 ? ' fetchpriority="high"' : '';
 
     return `
-        <article class="product-card fade-up${soldOut ? ' is-sold-out' : ''}" data-product-id="${escapeHtml(p.id)}" data-category="${escapeHtml(cat)}" data-sold-out="${soldOut}" style="--stagger: ${index * 0.07}s">
+        <article class="product-card${soldOut ? ' is-sold-out' : ''}" data-product-id="${escapeHtml(p.id)}" data-category="${escapeHtml(cat)}" data-sold-out="${soldOut}">
             <div class="card-image-wrap">
                 <button type="button" class="card-image-btn" data-open-detail="${escapeHtml(p.id)}" aria-label="Lihat detail ${escapeHtml(p.title)}">
                     <div class="card-image">
                         ${soldOut ? '<div class="sold-out-veil" aria-hidden="true"></div><span class="sold-out-stamp">HABIS</span>' : ''}
-                        <img src="${escapeHtml(p.thumbnail)}" alt="${escapeHtml(p.title)}" loading="lazy"${soldOut ? ' class="img-sold-out"' : ''}>
+                        <img src="${escapeHtml(thumb)}" alt="" width="400" height="500" loading="lazy" decoding="async"${fetchPri}${imgClass ? ` class="${imgClass}"` : ''}>
                     </div>
                 </button>
-                <button type="button" class="card-zoom-btn" data-zoom-src="${escapeHtml(p.thumbnail)}" data-zoom-alt="${escapeHtml(p.title)}" aria-label="Perbesar foto ${escapeHtml(p.title)}">${ZOOM_ICON}</button>
+                <button type="button" class="card-zoom-btn" data-zoom-src="${escapeHtml(thumb)}" data-zoom-alt="${escapeHtml(p.title)}" aria-label="Perbesar foto ${escapeHtml(p.title)}">${ZOOM_ICON}</button>
             </div>
             <div class="card-body">
                 <div class="card-meta-tags">
@@ -342,26 +345,71 @@ function updateCatalogResult(count) {
     const el = document.getElementById('catalogResult');
     if (!el) return;
 
+    if (count > 0) {
+        el.hidden = true;
+        el.textContent = '';
+        return;
+    }
+
     const q = searchQuery.trim();
     const filtered =
         activeFilter !== 'all' || activeStockFilter !== 'all' || q.length > 0;
 
-    if (count === 0) {
-        el.textContent = filtered
-            ? 'Tidak ada akun yang cocok dengan filter ini'
-            : 'Belum ada akun di katalog';
-        el.classList.add('catalog-result--empty');
-        return;
-    }
+    el.hidden = false;
+    el.textContent = filtered
+        ? 'Tidak ada akun yang cocok dengan filter ini'
+        : 'Belum ada akun di katalog';
+    el.classList.add('catalog-result--empty');
+}
 
-    el.classList.remove('catalog-result--empty');
-    if (activeStockFilter === 'available') {
-        el.textContent = `${count} akun tersedia — siap dibeli`;
-    } else if (filtered) {
-        el.textContent = `Menampilkan ${count} akun`;
-    } else {
-        el.textContent = `${count} akun siap dibeli`;
-    }
+function debounce(fn, wait) {
+    let timer;
+    return function debounced(...args) {
+        clearTimeout(timer);
+        timer = setTimeout(() => fn.apply(this, args), wait);
+    };
+}
+
+let renderProductsRaf = 0;
+
+function scheduleRenderProducts() {
+    if (renderProductsRaf) cancelAnimationFrame(renderProductsRaf);
+    renderProductsRaf = requestAnimationFrame(() => {
+        renderProductsRaf = 0;
+        renderProducts();
+    });
+}
+
+const debouncedRenderProducts = debounce(scheduleRenderProducts, 280);
+
+function initProductGridEvents() {
+    const grid = document.getElementById('productsGrid');
+    if (!grid || grid.dataset.delegateBound === '1') return;
+    grid.dataset.delegateBound = '1';
+
+    grid.addEventListener('click', (e) => {
+        const zoomBtn = e.target.closest('[data-zoom-src]');
+        if (zoomBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            openImageZoom(zoomBtn.dataset.zoomSrc, zoomBtn.dataset.zoomAlt || '');
+            return;
+        }
+
+        const waBtn = e.target.closest('[data-wa-id]');
+        if (waBtn) {
+            const product = PRODUCTS.find(p => p.id === waBtn.dataset.waId);
+            if (!product || product.soldOut) return;
+            openWhatsApp(product.title, product.price);
+            return;
+        }
+
+        const detailBtn = e.target.closest('[data-open-detail]');
+        if (detailBtn) {
+            const product = PRODUCTS.find(p => p.id === detailBtn.dataset.openDetail);
+            if (product) openProductModal(product);
+        }
+    });
 }
 
 function renderProducts() {
@@ -378,31 +426,6 @@ function renderProducts() {
     }
 
     updateCatalogResult(filtered.length);
-
-    grid.querySelectorAll('[data-open-detail]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const product = PRODUCTS.find(p => p.id === btn.dataset.openDetail);
-            if (product) openProductModal(product);
-        });
-    });
-
-    grid.querySelectorAll('[data-zoom-src]').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            openImageZoom(btn.dataset.zoomSrc, btn.dataset.zoomAlt || '');
-        });
-    });
-
-    grid.querySelectorAll('[data-wa-id]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const product = PRODUCTS.find(p => p.id === btn.dataset.waId);
-            if (!product || product.soldOut) return;
-            openWhatsApp(product.title, product.price);
-        });
-    });
-
-    registerFadeAnimations(grid);
 }
 
 function setFilterGroupActive(buttons, activeBtn) {
@@ -427,7 +450,7 @@ function initProductFilters() {
         btn.addEventListener('click', () => {
             activeFilter = btn.dataset.filter;
             setFilterGroupActive(gameFilterBtns, btn);
-            renderProducts();
+            scheduleRenderProducts();
         });
     });
 
@@ -435,7 +458,7 @@ function initProductFilters() {
         btn.addEventListener('click', () => {
             activeStockFilter = btn.dataset.stockFilter;
             setFilterGroupActive(stockFilterBtns, btn);
-            renderProducts();
+            scheduleRenderProducts();
         });
     });
 
@@ -443,7 +466,7 @@ function initProductFilters() {
         searchInput.addEventListener('input', () => {
             searchQuery = searchInput.value;
             if (searchClear) searchClear.hidden = !searchQuery.length;
-            renderProducts();
+            debouncedRenderProducts();
         });
     }
 
@@ -453,7 +476,7 @@ function initProductFilters() {
             searchQuery = '';
             searchClear.hidden = true;
             searchInput.focus();
-            renderProducts();
+            scheduleRenderProducts();
         });
     }
 
@@ -461,7 +484,7 @@ function initProductFilters() {
     if (sortSelect) {
         sortSelect.addEventListener('change', () => {
             activeSort = sortSelect.value;
-            renderProducts();
+            scheduleRenderProducts();
         });
     }
 }
@@ -481,8 +504,9 @@ function openImageZoom(src, alt) {
     if (!modal || !img || !src) return;
 
     currentZoomSrc = src;
-    img.src = src;
     img.alt = alt || 'Foto produk';
+    img.src = src;
+    img.classList.remove('is-loading');
     modal.removeAttribute('hidden');
     modal.classList.add('active');
     document.body.classList.add('no-scroll');
@@ -493,6 +517,11 @@ function openImageZoom(src, alt) {
 function closeImageZoom() {
     const modal = document.getElementById('imageZoomModal');
     if (!modal || !modal.classList.contains('active')) return;
+    const img = document.getElementById('imageZoomImg');
+    if (img) {
+        img.removeAttribute('src');
+        img.classList.remove('is-loading');
+    }
     modal.classList.remove('active');
     modal.setAttribute('hidden', '');
     currentZoomSrc = '';
@@ -578,17 +607,21 @@ function openProductModal(product) {
 
     if (!modal || !modalWhatsAppBtn) return;
 
-    const detailSrc = product.detailImage || product.thumbnail;
+    const thumbSrc = getCardThumbSrc(product);
     const fullDesc = product.descriptionFull || product.description;
 
-    modalImage.src = detailSrc;
+    modal.classList.add('active');
+    document.body.classList.add('no-scroll');
+
     modalImage.alt = product.title;
+    modalImage.src = thumbSrc;
+    modalImage.classList.remove('is-loading');
 
     const modalZoomBtn = document.getElementById('modalZoomBtn');
     if (modalZoomBtn) {
         modalZoomBtn.onclick = (e) => {
             e.stopPropagation();
-            openImageZoom(detailSrc, product.title);
+            openImageZoom(thumbSrc, product.title);
         };
     }
 
@@ -637,8 +670,6 @@ function openProductModal(product) {
 
     modal.classList.toggle('modal-sold-out', soldOut);
 
-    modal.classList.add('active');
-    document.body.classList.add('no-scroll');
     const fab = document.getElementById('fabWhatsApp');
     if (fab) fab.style.visibility = 'hidden';
     closeNavMenu();
@@ -647,6 +678,11 @@ function openProductModal(product) {
 function closeModal() {
     const modal = document.getElementById('productModal');
     if (!modal || !modal.classList.contains('active')) return;
+    const modalImage = document.getElementById('modalImage');
+    if (modalImage) {
+        modalImage.removeAttribute('src');
+        modalImage.classList.remove('is-loading');
+    }
     modal.classList.remove('active', 'modal-sold-out');
     if (!isImageZoomOpen()) {
         document.body.classList.remove('no-scroll');
@@ -683,7 +719,9 @@ function registerFadeAnimations(root = document) {
 }
 
 function initAnimations() {
-    registerFadeAnimations();
+    document.querySelectorAll('.fade-up').forEach(el => {
+        el.classList.add('visible');
+    });
 }
 
 // Testimonial Slider
@@ -714,7 +752,7 @@ if (sliderPrev && testimonialTrack) {
 let autoScrollInterval;
 
 function startAutoScroll() {
-    if (!testimonialTrack) return;
+    if (!testimonialTrack || IS_NARROW_VIEW) return;
     stopAutoScroll();
     autoScrollInterval = setInterval(() => {
         const slideWidth = getSlideWidth();
@@ -825,16 +863,18 @@ function initThemeToggle() {
     });
 }
 
+document.documentElement.classList.add('perf-lite');
+
 document.addEventListener('DOMContentLoaded', () => {
     initThemeToggle();
     setupContactLinks();
+    initProductGridEvents();
     renderProducts();
     renderFaq();
     initFaqAccordion();
     initImageZoom();
     initModalDismiss();
     initProductFilters();
-    initScrollProgress();
     initBackToTop();
     initScrollSpy();
     initAnimations();
