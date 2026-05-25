@@ -771,6 +771,38 @@
       </div>
     </div>
 
+    <!-- Image Zoom Modal -->
+    <div
+      class="image-zoom-modal"
+      id="imageZoomModal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Perbesar foto"
+      hidden
+    >
+      <div class="image-zoom-overlay" id="imageZoomOverlay"></div>
+      <button
+        type="button"
+        class="image-zoom-close"
+        id="imageZoomClose"
+        aria-label="Tutup"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+        >
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+      <div class="image-zoom-inner">
+        <img id="imageZoomImg" src="" alt="" />
+      </div>
+    </div>
+
     <script src="products.js"></script>
     <script src="script.js"></script>
   </body>
