@@ -3,4 +3,4 @@ Allow: /
 Disallow: /akun/
 Disallow: /.git/
 
-Sitemap: https://vinszstore.com/sitemap.xml
+Sitemap: https://vinszhop.vercel.app/sitemap.xml
