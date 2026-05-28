@@ -85,7 +85,7 @@ function setupContactLinks() {
         const el = document.getElementById(id);
         if (el) {
             el.href = id === 'fabWhatsApp'
-                ? `${waUrl}?text=${encodeURIComponent('Halo VinszStore, saya ingin tanya produk akun game.')}`
+                ? `${waUrl}?text=${encodeURIComponent('Halo VinszShop, saya ingin tanya produk akun game.')}`
                 : waUrl;
         }
     });

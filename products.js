@@ -19,14 +19,14 @@ const SITE_CONFIG = {
   instagram: "https://www.instagram.com/dapin.saja?igsh=NWxjaWt3bTc3cGlk",
   tagline:
     "Marketplace akun game premium terpercaya. Tempat terbaik untuk beli akun Free Fire, Mobile Legends, PUBG & game lainnya.",
-  locationName: "VinszStore",
+  locationName: "VinszShop",
   locationAddress: "Indonesia · Transaksi online via WhatsApp",
 };
 
 /** FAQ — pertanyaan & jawaban (accordion) */
 const FAQ_ITEMS = [
   {
-    question: "Bagaimana cara membeli akun di VinszStore?",
+    question: "Bagaimana cara membeli akun di VinszShop?",
     answer:
       "Pilih akun di katalog, klik foto untuk detail, lalu tekan tombol Beli via WhatsApp. Admin akan membalas dan memandu proses pembayaran hingga akun diterima.",
   },
